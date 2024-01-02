@@ -4,14 +4,15 @@ use strict;
 use warnings;
 use 5.022;
 use lib 'lib';
-use VectorTracer::Perl;
+use VectorTracer;
 
 use Data::Dumper;
 
 my $code = join '', <>;
 
-my $tracer = new VectorTracer::Perl(debug => 1);
+my $tracer = new VectorTracer(debug => 0);
 my $node = $tracer->parse($code);
-say $tracer->trace($node);
+say $tracer->trace;
+
 
 1;

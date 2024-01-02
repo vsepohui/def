@@ -1,5 +1,3 @@
-
-say 123; 
-print 1;
+say(sin(0));
 
 

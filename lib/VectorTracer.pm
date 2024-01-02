@@ -1,11 +1,11 @@
 package VectorTracer;
 
-# This deal I was coded on C++ when I was study in Moscow, try to remember this stuff...
+# Recode from math phases vecror tracer
 
 use strict;
 use warnings;
-use 5.022;
-use experimental 'smartmatch';
+use 5.038;
+no warnings 'deprecated::smartmatch';
 
 use Data::Dumper;
 
@@ -20,7 +20,7 @@ sub new {
 		node	=> undef,
 		digit 	=> '',
 		debug   => $opts{debug},
-		functions => {map {$_ => 1} qw/sin cos/},
+		functions => {map {$_ => 1} qw/print say sin cos/},
 		operators => {map {$_ => 1} ('+', '-', '*', '/', '**')},
 	};
 	
@@ -40,23 +40,44 @@ sub debug {
 
 sub trace {
 	my $self = shift;
+	
+	my $code = $self->_trace;
+	
+	return "
+#include <iostream>
+#include <math.h>
+
+using namespace std;
+
+int main () {
+	$code
+}
+
+";
+}
+
+sub _trace {
+	my $self = shift;
 	my $node = shift // $self->{node};
 	
 	if (ref $node eq 'HASH') {
 		my ($key, $value) = each %$node;
 		if ($self->{functions}->{$key}) {
-			my $a = $self->trace($value);
-			return sin($a) if ($key eq 'sin');
-			return cos($a) if ($key eq 'cos');
+			my $a = $self->_trace($value);
+			$a =~ s/;$//;
+			return "sin(".$a.");" if ($key eq 'sin');
+			return "cos(".$a.");" if ($key eq 'cos');
+			return "cout << ".$a.";" if ($key eq 'print');
+			return "cout << ".$a." << endl;" if ($key eq 'say');
 		} elsif ($self->{operators}->{$key}) {
 			my ($a, $b) = @$value;
-			$a = $self->trace($a);
-			$b = $self->trace($b);
-			return $a + $b if ($key eq '+');
-			return $a - $b if ($key eq '-');
-			return $a * $b if ($key eq '*');
-			return $a / $b if ($key eq '/');
-			return $a ** $b if ($key eq '**');
+			$a = $self->_trace($a);
+			$b = $self->_trace($b);
+			return "$a + $b" if ($key eq '+');
+			return "$a - $b" if ($key eq '-');
+			return "$a * $b" if ($key eq '*');
+			return "$a / $b" if ($key eq '/');
+			return "$a ** $b" if ($key eq '**');
 		}
 	} elsif (ref $node eq 'ARRAY') {
 		
