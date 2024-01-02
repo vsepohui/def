@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use 5.022;
+use lib 'lib';
+use VectorTracer::Perl;
+
+use Data::Dumper;
+
+my $code = join '', <>;
+
+my $tracer = new VectorTracer::Perl(debug => 1);
+my $node = $tracer->parse($code);
+say $tracer->trace($node);
+
+1;
