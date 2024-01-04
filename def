@@ -12,6 +12,7 @@ my $code = join '', <>;
 
 my $tracer = new VectorTracer(debug => 0);
 my $node = $tracer->parse($code);
+#say Dumper ($node);
 say $tracer->trace;
 
 

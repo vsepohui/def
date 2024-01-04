@@ -21,6 +21,7 @@ sub new {
 		digit 	=> '',
 		debug   => $opts{debug},
 		functions => {map {$_ => 1} qw/print say sin cos/},
+		cases	  => {map {$_ => 1} 'if'},
 		operators => {map {$_ => 1} ('+', '-', '*', '/', '**')},
 	};
 	
@@ -62,6 +63,8 @@ sub _trace {
 	
 	if (ref $node eq 'HASH') {
 		my ($key, $value) = each %$node;
+		$key =~ s/\^s+//;
+		$key =~ s/\s+$//;
 		if ($self->{functions}->{$key}) {
 			my $a = $self->_trace($value);
 			$a =~ s/;$//;
@@ -69,6 +72,10 @@ sub _trace {
 			return "cos(".$a.");" if ($key eq 'cos');
 			return "cout << ".$a.";" if ($key eq 'print');
 			return "cout << ".$a." << endl;" if ($key eq 'say');
+		} elsif ($self->{cases}->{$key}) {
+			my $a = $self->_trace($value->[0]);
+			my $b = $self->_trace($value->[1]->{sub});
+			return "if (". $a . ") {\n". $b . "\n}\n";
 		} elsif ($self->{operators}->{$key}) {
 			my ($a, $b) = @$value;
 			$a = $self->_trace($a);
@@ -78,9 +85,20 @@ sub _trace {
 			return "$a * $b" if ($key eq '*');
 			return "$a / $b" if ($key eq '/');
 			return "$a ** $b" if ($key eq '**');
+		} else {
+			die $key;
+			die Dumper $node;
 		}
 	} elsif (ref $node eq 'ARRAY') {
-		
+		my $s = '';
+		for (@$node) {
+			$s .= $self->_trace($_) . "\n";
+		}
+		return $s;
+	} elsif (!ref $node) {
+		return $node;
+	} else {
+		die Dumper $node;
 	}
 	return $node;
 }
@@ -167,6 +185,16 @@ sub prepare_multi_and_div {
 }
 
 
+sub prepare_cases {
+	my $self = shift;
+	my $str = shift;
+	
+	# need to recode
+	$str =~ s/if\s*(\(.*?\))\s*(\{.*?\})/if ($1, $2);/gms;
+	
+	return $str;
+}
+
 sub parse {
 	my $self = shift;
 	my $str  = shift;
@@ -174,6 +202,7 @@ sub parse {
 	$self->{node} = undef;
 	$self->debug("Parse string original = $str");
 	$str = $self->prepare_multi_and_div($str);
+	$str = $self->prepare_cases($str);
 	$self->debug("Parse string prepared = $str");
 	my $node = $self->_depack($self->_parse ($str));
 	$self->{node} = $node;
@@ -218,7 +247,7 @@ sub _parse {
 	
 	for (my $i = 0; $i < @s; $i++) {
 		my $c = $s[$i];
-		$self->debug($c);
+		#$self->debug($c);
 		if ($self->{operators}->{$c}) {
 			my $op = $c;
 			if ($op eq '*' && $s[$i+1] eq '*') {
@@ -320,6 +349,33 @@ sub _parse {
 			$i = $j;
 			$function = '';
 			next;
+		} elsif ($c eq '{') {
+			
+			my $j;
+			my $buff = '';
+			for ($j = $i + 0; $j < @s ; $j ++) {
+				my $o = $s[$j];
+				$self->debug($o);
+				$buff .= $o;
+				my $cnt = 0;
+				if ($o eq '{') {
+					$cnt ++;
+					next;
+				}
+				if ($o eq '}' || $j == scalar (@s) - 1) {
+					$self->debug("$cnt , cnt00");
+					$cnt --;
+					if ($cnt == -1) {
+						$self->debug("Buff sub = $buff");
+						#die $function;
+						push @$node, {sub => $self->_parse(substr($buff,1))};
+						#$node->{$function} = $self->_parse($buff);
+						last;
+					}
+				}
+			}
+			$i = $j;
+			$function = '';
 		} elsif ($c =~ /[a-z]/) { # fuction processiong
 			my $j;
 			my $func_end = 0;
@@ -362,8 +418,13 @@ sub _parse {
 			
 			$self->debug("Found function = $func, buff = $buff");
 			push @$node, {$func => $self->_parse($buff)};
+			$func = '';
 		} elsif ($c =~ /[0-9\.]/) {
-			my ($n, $idx) = $self->_parse_digit([@s[$i..$sl - 1]]);
+			my @l = @s;
+			@l = splice(@l, $i, $sl - 1);
+			#warn Dumper \@l;
+			$self->{digit} = '';
+			my ($n, $idx) = $self->_parse_digit([@l]);
 			$i = $idx + $i;
 			push @$node, $n;
 		}
