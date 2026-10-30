@@ -158,7 +158,15 @@ class List {
 	
 	Scalar scalar () {
 		return Scalar((int)this->vector.size());
-	}	
+	}
+	
+	Scalar get (int n) {
+		if (n > 0) {
+			return this->vector[n];
+		} else {
+			return this->vector[(int)this->vector.size() + n];
+		}
+	}
 };
 
 
@@ -240,7 +248,9 @@ sub _trace {
 				} elsif ($f eq '.=' ) {
 					push @code, 'my_'.$_->{call_function}->[1] . ' = Scalar_concat('. 'my_'.$_->{call_function}->[1]. ', Scalar('. $self->_trace($_->{call_function}->[2]). '));';
 				} elsif ($f eq 'scalar') {
-					push @code, 'List(' . $self->_trace($_->{call_function}->[1]) .').scalar()' . ($opts{depth} == 0 ? ';' : '');;
+					push @code, 'List(' . $self->_trace($_->{call_function}->[1]) .').scalar()' . ($opts{depth} == 0 ? ';' : '');
+				} elsif ($f eq 'list_get') {
+					push @code, 'my_list_'.$_->{call_function}->[1]. '.get('. $self->_trace($_->{call_function}->[2], depth=>1).')'.($opts{depth} == 0 ? ';' : '');
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -364,7 +374,7 @@ sub parse {
 			}
 		} else {
 			warn "Parse $s";
-			my ($digit) = $s =~ /^\(?(\d+)\)?$/;
+			my ($digit) = $s =~ /^\(?(-?\d+)\)?$/;
 			if (defined $digit) {
 				return $digit;
 			} elsif ($s =~ /^"([^"]*)"$/ ) {
@@ -375,6 +385,11 @@ sub parse {
 				push @$node, {
 					call_function => ['.=' => $1, $self->parse($2)],
 				};
+			} elsif ($s =~ /^\$(\S+)\s*\[\s*(.+)\s*\]/) {
+				warn 'get ' . $2;;
+				push @$node, {
+					call_function => ['list_get' => $1, $self->parse($2)],
+				};				
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
 					call_function => ['+' => $self->parse($1), $self->parse($2)],
@@ -391,7 +406,7 @@ sub parse {
 				push @$node, {
 					call_function => ['*' => $self->parse($1), $self->parse($2)],
 				};
-			} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
+			} elsif ($s =~ /^(.+)\s*\/\s*(.+)/) {
 				push @$node, {
 					
 					call_function => ['/' => $self->parse($1), $self->parse($2)],

@@ -20,5 +20,7 @@ while (1) {
 };
 
 
-my @list = (1,2,3);
+my @list = (1,2,3, "Hello LIST");
 say scalar @list;
+say $list[3];
+say $list[-1];
