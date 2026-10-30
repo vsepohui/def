@@ -1,6 +1,6 @@
 say (123456+100);
 
-my $i = "Hello SCALAR";
+my $i = "Hello SCALAR " . "World";
 say $i;
 
 if (123) {

@@ -46,13 +46,20 @@ sub trace {
 using namespace std;
 
 class Scalar {
+	public:
+	
 	bool is_undef = true;
 	std::string string;
 	
-	public:
+
 	Scalar () {
 		;
 	}
+	
+	Scalar (std::string str) {
+		is_undef = false;
+		string = str;
+	}	
 	
 	Scalar (char * str) {
 		is_undef = false;
@@ -108,6 +115,10 @@ std::ostream& operator << (std::ostream &os, Scalar &s)
 {
     return os << (std::string) s;
 }
+Scalar Scalar_concat (Scalar s1, Scalar s2) {
+	return Scalar(s1.string + s2.string);
+}
+
 
 int main () {
 	$code
@@ -172,6 +183,8 @@ sub _trace {
 					push @code, "Scalar my_". $_->{call_function}->[1]. ' = '. $self->_trace($_->{call_function}->[2]).';';
 				} elsif ($f eq 'scalar_set') {
 					push @code, 'my_'.$_->{call_function}->[1];
+				} elsif ($f eq '.' ) {
+					push @code, 'Scalar_concat(Scalar('. $self->_trace($_->{call_function}->[1]) . '), Scalar('. $self->_trace($_->{call_function}->[2]). '))';
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -293,12 +306,16 @@ sub parse {
 			my ($digit) = $s =~ /^\(?(\d+)\)?$/;
 			if (defined $digit) {
 				return $digit;
-			} elsif ($s =~ /^\"(.*)\"$/ ) {
+			} elsif ($s =~ /^\"([^\"]+)\"$/ ) {
 				return qq["$1"];
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
 					call_function => ['+' => $self->parse($1), $self->parse($2)],
 				};
+			} elsif ($s =~ /^(.+)\s*\.\s*(.+)/) {
+				push @$node, {
+					call_function => ['.' => $self->parse($1), $self->parse($2)],
+				};				
 			} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
 				push @$node, {
 					call_function => ['-' => $self->parse($1), $self->parse($2)],
