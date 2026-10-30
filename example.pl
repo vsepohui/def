@@ -5,6 +5,6 @@ if (123) {
 };
 
 while (1) {
-	say 123;
+	say "Hello World!";
 	last;
 };

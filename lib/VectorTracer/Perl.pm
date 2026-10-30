@@ -206,7 +206,6 @@ sub parse {
 			if (defined $digit) {
 				return $digit;
 			} elsif ($s =~ /^\"(.*)\"$/ ) {
-				die $1;
 				return qq["$1"];
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
