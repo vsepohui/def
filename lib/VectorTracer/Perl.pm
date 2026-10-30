@@ -42,7 +42,44 @@ sub trace {
 	my $code = $self->_trace($node);
 	return "#include <iostream>
 #include <math.h>
+#include <string>
 using namespace std;
+
+class Scalar {
+	bool is_undef = true;
+	std::string string;
+	Scalar () {
+		;
+	}
+	
+	Scalar (char * str) {
+		is_undef = false;
+		string = str;
+	}
+	Scalar (int i) {
+		is_undef = false;
+		string = i;
+	}
+	
+	operator std::string () {
+		return this->string;
+	}
+	
+	operator bool () {
+		if (this->is_undef) {
+			return false;
+		}
+		if (this->string == \"\") {
+			return false;
+		}
+		if (this->string == \"0\" ) {
+			return false;
+		}
+		
+		return true;
+	}
+	
+};
 
 int main () {
 	$code
