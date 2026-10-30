@@ -115,6 +115,12 @@ sub _trace {
 	return $node;
 }
 
+sub _blocks {
+	my $s = shift;
+	my $n = shift;
+	die $s;
+	return split (/\}/, $s) == $n + 1;
+}
 
 sub parse {
 	my $self = shift;
@@ -154,6 +160,7 @@ sub parse {
 	
 
 	my $buff;
+	my $blocks = 0;
 	for (my $i = 0; $i < @s; $i++) {
 		my $s = $s[$i];
 		$buff .= $s;
@@ -170,21 +177,29 @@ sub parse {
 			# Function
 			$s  =~ s/;$//;
 			if ($s =~ /^if\s*\((.*)\)/) {
-				warn "s = $s";
-				unless ($s =~ /^if\s*\((.*)\)\s*\{(.*)\}/s) {
+				unless ($s =~ /^if\s*\((.*?)\)\s*\{(.*)\}/s) {
+					next;	
+				}
+				my $case = $1;
+				my $code = $2;
+				if (scalar split (/\{/, $code) != scalar split (/\}/, $code)) {
 					next;
-				}	
+				}
 				push @$node, {
-					call_function => ['if' => $self->parse($1), $self->parse($2)],
+					call_function => ['if' => $self->parse($case), $self->parse($code)],
 				};
 			} elsif ($s =~ /^while\s*\((.*)\)/) {
-				warn "s = $s";
-				unless ($s =~ /^while\s*\((.*)\)\s*\{(.*)\}/s) {
+				unless ($s =~ /^while\s*\((.*?)\)\s*\{(.*)\}/s) {
+					next;	
+				}
+				my $case = $1;
+				my $code = $2;
+				if (scalar split (/\{/, $code) != scalar split (/\}/, $code)) {
 					next;
-				}	
+				}
 				push @$node, {
-					call_function => ['while' => $self->parse($1), $self->parse($2)],
-				};				
+					call_function => ['while' => $self->parse($case), $self->parse($code)],
+				};
 			} elsif ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
@@ -202,7 +217,7 @@ sub parse {
 			}
 		} else {
 			warn "Parse $s";
-			my ($digit) = $s =~ /^(\d+)$/;
+			my ($digit) = $s =~ /^\(?(\d+)\)?$/;
 			if (defined $digit) {
 				return $digit;
 			} elsif ($s =~ /^\"(.*)\"$/ ) {
