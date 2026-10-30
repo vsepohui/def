@@ -18,3 +18,7 @@ while (1) {
 	};
 	last;
 };
+
+
+my @list = (1,2,3);
+say scalar @list;

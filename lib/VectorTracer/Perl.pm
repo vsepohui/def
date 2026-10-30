@@ -42,7 +42,10 @@ sub trace {
 	my $code = $self->_trace($node);
 	return "#include <iostream>
 #include <math.h>
+#include <cstdlib>
 #include <string>
+#include <vector>
+#include <initializer_list>
 using namespace std;
 
 class Scalar {
@@ -67,12 +70,12 @@ class Scalar {
 	}
 	Scalar (int i) {
 		is_undef = false;
-		string = i;
+		string = std::to_string(i);
 	}
 
 	Scalar (float f) {
 		is_undef = false;
-		string = f;
+		string = std::to_string(f);
 	}
 	
 	
@@ -111,13 +114,54 @@ class Scalar {
 	
 };
 
-std::ostream& operator << (std::ostream &os, Scalar &s)
+
+std::ostream& operator << (std::ostream &os, Scalar s)
 {
     return os << (std::string) s;
 }
+
 Scalar Scalar_concat (Scalar s1, Scalar s2) {
 	return Scalar(s1.string + s2.string);
 }
+
+class List {
+	public:
+	std::vector <Scalar> vector;
+	
+	List (std::initializer_list<Scalar> list) {
+		this->vector = list;
+	}
+	
+	void push (Scalar s) {
+		this->vector.push_back(s);
+	}
+	
+	Scalar pop () {
+		Scalar s = this->vector.back();
+		this->vector.pop_back();
+		return s;
+	}
+	
+	Scalar shift () {
+		Scalar s = this->vector[0];
+		this->vector.erase(this->vector.begin());
+		return s;
+	}
+	
+	void unshift (Scalar s) {
+		this->vector.insert(this->vector.begin(), s); 
+	}
+	
+	operator Scalar () {
+		return Scalar((int)this->vector.size());
+	}
+	
+	Scalar scalar () {
+		return Scalar((int)this->vector.size());
+	}	
+};
+
+
 
 
 int main () {
@@ -181,12 +225,22 @@ sub _trace {
 					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq 'scalar_init') {
 					push @code, "Scalar my_". $_->{call_function}->[1]. ' = '. $self->_trace($_->{call_function}->[2]).';';
+				} elsif ($f eq 'list_init') {
+					push @code, "List my_list_". $_->{call_function}->[1]. ' = List('. $self->_trace($_->{call_function}->[2], depth => 1).');';
+				} elsif ($f eq 'define_list') {
+					my @list = @{$_->{call_function}};
+					shift @list;
+					push @code, '{' . join (',', map {$self->_trace($_, depth => 1)} @list) . '}' .  ($opts{depth} == 0 ? ';' : '');
 				} elsif ($f eq 'scalar_set') {
 					push @code, 'my_'.$_->{call_function}->[1];
+				} elsif ($f eq 'list_set') {
+					push @code, 'my_list_'.$_->{call_function}->[1];					
 				} elsif ($f eq '.' ) {
 					push @code, 'Scalar_concat(Scalar('. $self->_trace($_->{call_function}->[1]) . '), Scalar('. $self->_trace($_->{call_function}->[2]). '))';
 				} elsif ($f eq '.=' ) {
 					push @code, 'my_'.$_->{call_function}->[1] . ' = Scalar_concat('. 'my_'.$_->{call_function}->[1]. ', Scalar('. $self->_trace($_->{call_function}->[2]). '));';
+				} elsif ($f eq 'scalar') {
+					push @code, 'List(' . $self->_trace($_->{call_function}->[1]) .').scalar()' . ($opts{depth} == 0 ? ';' : '');;
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -284,15 +338,20 @@ sub parse {
 				push @$node, {
 					call_function => ['while' => $self->parse($case), $self->parse($code)],
 				};
-			} elsif ($s =~ /^my \$([\S+])\s*\=\s*(.*)$/) {
+			} elsif ($s =~ /^my \$(\S+)\s*\=\s*(.*)$/) {
 				push @$node, {
 						call_function => ['scalar_init' => $1, $self->parse($2)],
+				};
+			} elsif ($s =~ /^my \@(\S+)\s*\=\s*(.*)/) {
+				push @$node, {
+						call_function => ['list_init' => $1, $self->parse($2)],
 				};				
 			} elsif ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
 				};
 			} elsif ($s =~ /^$function\s+(.*)\s*$/) {
+				#warn "func $1";
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
 				};	
@@ -341,6 +400,14 @@ sub parse {
 				push @$node, {
 					call_function => ['scalar_set' => $1],
 				};
+			} elsif ($s =~ /^\@(\S+)$/) {
+				push @$node, {
+					call_function => ['list_set' => $1],
+				};	
+			} elsif ($s =~ /,/) {
+				push @$node, {
+					call_function => ['define_list' => map {$self->parse($_)} split /\s*,\s*/, $s],
+				};				
 			} else {
 				die "Wrong syntax: $s";
 			}
