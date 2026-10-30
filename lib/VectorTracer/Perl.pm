@@ -65,6 +65,15 @@ class Scalar {
 		return this->string;
 	}
 	
+	
+	operator int () {
+		return stoi(this->string);
+	}
+	
+	operator float () {
+		return stof(this->string);
+	}	
+	
 	operator bool () {
 		if (this->is_undef) {
 			return false;
