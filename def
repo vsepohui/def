@@ -1,0 +1,27 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use 5.022;
+use lib 'lib';
+use VectorTracer::Perl;
+
+use Data::Dumper;
+
+my $file = $ARGV[0];
+
+my $code;
+
+my $fi;
+open $fi, $file;
+$code = <$fi>;
+close $fi;
+
+chomp $code;
+
+
+my $tracer = new VectorTracer::Perl(debug => 0);
+my $node = $tracer->parse($code);
+say $tracer->trace($node);
+
+1;
