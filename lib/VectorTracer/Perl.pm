@@ -40,14 +40,14 @@ sub trace {
 	my $self = shift;
 	my $node = shift;
 	my $code = $self->_trace($node);
-	return "
-	#include <iostream>
-	using namespace std;
-	
-	int main () {
-		$code
-		return 0;
-	}
+	return "#include <iostream>
+#include <math.h>
+using namespace std;
+
+int main () {
+	$code
+	return 0;
+}
 	";
 }
 
