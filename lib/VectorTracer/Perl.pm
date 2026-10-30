@@ -91,6 +91,8 @@ sub _trace {
 					push @code, "cos(" . $self->_trace($_->{call_function}->[1], depth => 1) . ")". ($opts{depth} == 0 ? ';' : '');
 				} elsif ($f eq 'if') {
 					push @code, "if(" . $self->_trace($_->{call_function}->[1], depth => 1). ") {" . $self->_trace($_->{call_function}->[2]) . '}';
+				} elsif ($f eq 'while') {
+					push @code, "while(" . $self->_trace($_->{call_function}->[1], depth => 1). ") {" . $self->_trace($_->{call_function}->[2]) . '}';					
 				} elsif ($f eq '+') {
 					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '-') {
@@ -164,6 +166,14 @@ sub parse {
 				push @$node, {
 					call_function => ['if' => $self->parse($1), $self->parse($2)],
 				};
+			} elsif ($s =~ /^while\s*\((.*)\)/) {
+				warn "s = $s";
+				unless ($s =~ /^while\s*\((.*)\)\s*\{(.*)\}/s) {
+					next;
+				}	
+				push @$node, {
+					call_function => ['while' => $self->parse($1), $self->parse($2)],
+				};				
 			} elsif ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
