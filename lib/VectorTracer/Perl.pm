@@ -82,9 +82,13 @@ sub _trace {
 		for (@$node) {
 			if (my $f = $_->{call_function}->[0]) {
 				if ($f eq 'say') {
-					push @code, "cout << " . $_->{call_function}->[1] . " << endl;";
-				} elsif ($f eq 'print') {
-					push @code, "cout << " . $_->{call_function}->[1] . ";";
+					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . " << endl;";
+				} elsif ($f eq 'print') {				
+					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . ";";
+				} elsif ($f eq 'plus') {
+					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2]).";";
+				} elsif ($f eq 'minus') {
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";					
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -102,6 +106,7 @@ sub parse {
 	my $self = shift;
 	my $str  = shift;
 	my $node = [];
+	
 	
 	$self->debug("Parse $str");
 	
@@ -125,6 +130,8 @@ sub parse {
 	for (my $i = 0; $i < @s; $i++) {
 		my $s = $s[$i];
 		$self->debug("Parse line: $s");
+		next if ($s =~ /^\s*$/);
+		
 		if (my ($function) = $s =~ /^([a-zA-Z_][\w+\d+_]*)/) {
 			# Function
 			if (my ($param) = $s =~ /^$function\s*\((.*)\)$/) {
@@ -135,8 +142,16 @@ sub parse {
 			} else {
 				die "Wrong syntax line: $s";
 			}
-		} elsif (my ($digit) = $s =~ /(\d+)/) {
-			return $digit;		
+		} elsif (my ($digit) = $s =~ /^(\d+)$/) {
+			return $digit;
+		} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
+			push @$node, {
+				call_function => [plus => $self->parse($1), $self->parse($2)],
+			};
+		} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
+			push @$node, {
+				call_function => [minus => $self->parse($1), $self->parse($2)],
+			};
 		} else {
 			die "Wrong syntax: $s";
 		}

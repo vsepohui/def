@@ -20,7 +20,7 @@ close $fi;
 chomp $code;
 
 
-my $tracer = new VectorTracer::Perl(debug => 0);
+my $tracer = new VectorTracer::Perl(debug => 1);
 my $node = $tracer->parse($code);
 say $tracer->trace($node);
 
