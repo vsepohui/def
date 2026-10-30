@@ -93,6 +93,8 @@ sub _trace {
 					push @code, "if(" . $self->_trace($_->{call_function}->[1], depth => 1). ") {" . $self->_trace($_->{call_function}->[2]) . '}';
 				} elsif ($f eq 'while') {
 					push @code, "while(" . $self->_trace($_->{call_function}->[1], depth => 1). ") {" . $self->_trace($_->{call_function}->[2]) . '}';					
+				} elsif ($f eq 'break' ) {
+					push @code, 'break;';
 				} elsif ($f eq '+') {
 					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '-') {
@@ -125,7 +127,15 @@ sub parse {
 	
 	$self->debug("Parse $str");
 	
-	my @s = map {s/^\s+//; s/\s+$//; $_} grep {defined $_} split /;/, $str;
+	my @s;
+	if ($str =~ /;/) {
+		@s = map {s/^\s+//; s/\s+$//; $_ . ';'} grep {defined $_} split /;/, $str;
+	} else {
+		$str =~ s/^\s+//;
+		$str =~ s/\s+$//;
+		push @s, $str;
+	}
+
 	
 	my $sl = scalar (@s);
 	
@@ -158,6 +168,7 @@ sub parse {
 		
 		if (my ($function) = $s =~ /^([a-zA-Z_][\w+\d+_]*)/) {
 			# Function
+			$s  =~ s/;$//;
 			if ($s =~ /^if\s*\((.*)\)/) {
 				warn "s = $s";
 				unless ($s =~ /^if\s*\((.*)\)\s*\{(.*)\}/s) {
@@ -181,16 +192,22 @@ sub parse {
 			} elsif ($s =~ /^$function\s+(.*)\s*$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
-				};				
+				};	
+			} elsif ($s eq 'last' ) {
+				push @$node, {
+						call_function => ['break'],
+				};					
 			} else {
 				die "Wrong syntax line: $s";
 			}
 		} else {
+			warn "Parse $s";
 			my ($digit) = $s =~ /^(\d+)$/;
 			if (defined $digit) {
 				return $digit;
-			} elsif ($s =~ /^\".*\"$/ ) {
-				return $s;
+			} elsif ($s =~ /^\"(.*)\"$/ ) {
+				die $1;
+				return qq["$1"];
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
 					call_function => ['+' => $self->parse($1), $self->parse($2)],

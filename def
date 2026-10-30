@@ -19,6 +19,8 @@ close $fi;
 
 chomp $code;
 
+#$code = ';' . $code;
+
 
 my $tracer = new VectorTracer::Perl(debug => 1);
 my $node = $tracer->parse($code);

@@ -1,5 +1,10 @@
 say (123456+100);
 
-if (1) {
-	say "Hello World!";
-}
+if (123) {
+	say 123;
+};
+
+while (1) {
+	say 123;
+	last;
+};
