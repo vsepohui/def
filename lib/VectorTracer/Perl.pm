@@ -60,6 +60,12 @@ class Scalar {
 		is_undef = false;
 		string = i;
 	}
+
+	Scalar (float f) {
+		is_undef = false;
+		string = f;
+	}
+	
 	
 	operator std::string () {
 		return this->string;
