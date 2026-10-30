@@ -89,6 +89,8 @@ sub _trace {
 					push @code, "sin(" . $self->_trace($_->{call_function}->[1], depth => 1) . ")" . ($opts{depth} == 0 ? ';' : '');
 				} elsif ($f eq 'cos') {				
 					push @code, "cos(" . $self->_trace($_->{call_function}->[1], depth => 1) . ")". ($opts{depth} == 0 ? ';' : '');
+				} elsif ($f eq 'if') {
+					push @code, "if(" . $self->_trace($_->{call_function}->[1], depth => 1). ") {" . $self->_trace($_->{call_function}->[2]) . '}';
 				} elsif ($f eq '+') {
 					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '-') {
@@ -127,7 +129,7 @@ sub parse {
 	
 	for (@s) {
 		if (my ($method, $scope) = $_ =~ /^([\w+\d+_]+)\s+(\S+)$/) {
-			warn $_;
+
 		}
 	}
 	
@@ -139,8 +141,11 @@ sub parse {
 	my $func;
 	
 
+	my $buff;
 	for (my $i = 0; $i < @s; $i++) {
 		my $s = $s[$i];
+		$buff .= $s;
+		$s = $buff;
 		$self->debug("Parse line: $s");
 		
 		if ($s =~ /^\s*\((.+)\)\s*/) {
@@ -151,7 +156,15 @@ sub parse {
 		
 		if (my ($function) = $s =~ /^([a-zA-Z_][\w+\d+_]*)/) {
 			# Function
-			if ($s =~ /^$function\s*\((.*)\)$/) {
+			if ($s =~ /^if\s*\((.*)\)/) {
+				warn "s = $s";
+				unless ($s =~ /^if\s*\((.*)\)\s*\{(.*)\}/s) {
+					next;
+				}	
+				push @$node, {
+					call_function => ['if' => $self->parse($1), $self->parse($2)],
+				};
+			} elsif ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
 				};
@@ -166,6 +179,8 @@ sub parse {
 			my ($digit) = $s =~ /^(\d+)$/;
 			if (defined $digit) {
 				return $digit;
+			} elsif ($s =~ /^\".*\"$/ ) {
+				return $s;
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
 					call_function => ['+' => $self->parse($1), $self->parse($2)],
@@ -180,13 +195,15 @@ sub parse {
 				};
 			} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
 				push @$node, {
+					
 					call_function => ['/' => $self->parse($1), $self->parse($2)],
 				};
 			} else {
 				die "Wrong syntax: $s";
 			}
 		}
-	}		
+		$buff = '';
+	}	
 	return $node;
 }
 
