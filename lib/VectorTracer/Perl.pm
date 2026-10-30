@@ -85,10 +85,14 @@ sub _trace {
 					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . " << endl;";
 				} elsif ($f eq 'print') {				
 					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . ";";
-				} elsif ($f eq 'plus') {
+				} elsif ($f eq '+') {
 					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2]).";";
-				} elsif ($f eq 'minus') {
-					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";					
+				} elsif ($f eq '-') {
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
+				} elsif ($f eq '*') {
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
+				} elsif ($f eq '/') {
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -146,11 +150,19 @@ sub parse {
 			return $digit;
 		} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 			push @$node, {
-				call_function => [plus => $self->parse($1), $self->parse($2)],
+				call_function => ['+' => $self->parse($1), $self->parse($2)],
 			};
 		} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
 			push @$node, {
-				call_function => [minus => $self->parse($1), $self->parse($2)],
+				call_function => ['-' => $self->parse($1), $self->parse($2)],
+			};
+		} elsif ($s =~ /^(.+)\s*\*\s*(.+)/) {
+			push @$node, {
+				call_function => ['*' => $self->parse($1), $self->parse($2)],
+			};
+		} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
+			push @$node, {
+				call_function => ['/' => $self->parse($1), $self->parse($2)],
 			};
 		} else {
 			die "Wrong syntax: $s";
