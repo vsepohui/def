@@ -53,13 +53,13 @@ sub trace {
 
 sub _trace {
 	my $self = shift;
-	
+	my $node = shift;
+	my %opts = (
+		depth => 0,
+		@_,
+	);
 
 	my $code = '';
-	
-	my $node = shift // $self->{node};
-
-
 	
 	if (ref $node eq 'HASH') {
 		my ($key, $value) = each %$node;
@@ -82,17 +82,21 @@ sub _trace {
 		for (@$node) {
 			if (my $f = $_->{call_function}->[0]) {
 				if ($f eq 'say') {
-					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . " << endl;";
+					push @code, "cout << " . $self->_trace($_->{call_function}->[1], depth => 1) . " << endl;";
 				} elsif ($f eq 'print') {				
-					push @code, "cout << " . $self->_trace($_->{call_function}->[1]) . ";";
+					push @code, "cout << " . $self->_trace($_->{call_function}->[1], depth => 1) . ";";
+				} elsif ($f eq 'sin') {				
+					push @code, "sin(" . $self->_trace($_->{call_function}->[1], depth => 1) . ")" . ($opts{depth} == 0 ? ';' : '');
+				} elsif ($f eq 'cos') {				
+					push @code, "cos(" . $self->_trace($_->{call_function}->[1], depth => 1) . ")". ($opts{depth} == 0 ? ';' : '');
 				} elsif ($f eq '+') {
-					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2]).";";
+					push @code, $self->_trace($_->{call_function}->[1]). '+'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '-') {
-					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '*') {
-					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '/') {
-					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2]).";";
+					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -111,15 +115,19 @@ sub parse {
 	my $str  = shift;
 	my $node = [];
 	
+
+	
+	$str =~ s/;+\s*$//;
 	
 	$self->debug("Parse $str");
 	
-	my @s = map {s/^\s+//; s/\s+$//; $_} grep {$_} split /;/, $str;
+	my @s = map {s/^\s+//; s/\s+$//; $_} grep {defined $_} split /;/, $str;
+	
 	my $sl = scalar (@s);
 	
 	for (@s) {
-		if (my ($method, $scope) = $_ =~ /([\w+\d+_]+)\s+(\S+)/) {
-			$_ = "$method($scope)";
+		if (my ($method, $scope) = $_ =~ /^([\w+\d+_]+)\s+(\S+)$/) {
+			warn $_;
 		}
 	}
 	
@@ -134,79 +142,52 @@ sub parse {
 	for (my $i = 0; $i < @s; $i++) {
 		my $s = $s[$i];
 		$self->debug("Parse line: $s");
+		
+		if ($s =~ /^\s*\((.+)\)\s*/) {
+			$s = $1;
+		}
+		
 		next if ($s =~ /^\s*$/);
 		
 		if (my ($function) = $s =~ /^([a-zA-Z_][\w+\d+_]*)/) {
 			# Function
-			if (my ($param) = $s =~ /^$function\s*\((.*)\)$/) {
-				my $p = $self->parse ($param);
+			if ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
-					call_function => [$function => $p],
+						call_function => [$function => $self->parse($1)],
 				};
+			} elsif ($s =~ /^$function\s+(.*)\s*$/) {
+				push @$node, {
+						call_function => [$function => $self->parse($1)],
+				};				
 			} else {
 				die "Wrong syntax line: $s";
 			}
-		} elsif (my ($digit) = $s =~ /^(\d+)$/) {
-			return $digit;
-		} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
-			push @$node, {
-				call_function => ['+' => $self->parse($1), $self->parse($2)],
-			};
-		} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
-			push @$node, {
-				call_function => ['-' => $self->parse($1), $self->parse($2)],
-			};
-		} elsif ($s =~ /^(.+)\s*\*\s*(.+)/) {
-			push @$node, {
-				call_function => ['*' => $self->parse($1), $self->parse($2)],
-			};
-		} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
-			push @$node, {
-				call_function => ['/' => $self->parse($1), $self->parse($2)],
-			};
 		} else {
-			die "Wrong syntax: $s";
+			my ($digit) = $s =~ /^(\d+)$/;
+			if (defined $digit) {
+				return $digit;
+			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
+				push @$node, {
+					call_function => ['+' => $self->parse($1), $self->parse($2)],
+				};
+			} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
+				push @$node, {
+					call_function => ['-' => $self->parse($1), $self->parse($2)],
+				};
+			} elsif ($s =~ /^(.+)\s*\*\s*(.+)/) {
+				push @$node, {
+					call_function => ['*' => $self->parse($1), $self->parse($2)],
+				};
+			} elsif ($s =~ /^(.+)\s*\-\s*(.+)/) {
+				push @$node, {
+					call_function => ['/' => $self->parse($1), $self->parse($2)],
+				};
+			} else {
+				die "Wrong syntax: $s";
+			}
 		}
 	}		
 	return $node;
-}
-
-sub _parse_digit {
-	my $self = shift;
-	my $s = shift;
-	my @s = @$s;
-	
-	my $i = 0;
-	my $c = $s[0];
-	
-	my $node = [];
-	
-	$self->{digit} .= $c;
-	my $j;
-	my $buff = $self->{digit};
-	my $had_non_digit = 0;
-	for ($j = $i + 1; $j < @s ; $j ++) {
-		my $o = $s[$j];
-		if ($o =~ /[0-9\.]/) {
-			$buff .= $o;
-		} else {
-			$had_non_digit = 1;
-			last;
-		}
-	}
-	
-	if ($had_non_digit) {
-		$i = $j - 1;
-		$self->{digit} = substr($buff, 0, length ($buff) );
-		$self->debug("Found digit = ".$self->{digit});
-		push @$node, $self->{digit};
-	} else {
-		$i = $j;
-		$self->{digit} = $buff;
-		$self->debug("Found digit = ".$self->{digit});
-		push @$node, $self->{digit};
-	}
-	return ($node, $i);
 }
 
 1;

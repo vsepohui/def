@@ -14,7 +14,7 @@ my $code;
 
 my $fi;
 open $fi, $file;
-$code = <$fi>;
+$code = join '', <$fi>;
 close $fi;
 
 chomp $code;
@@ -22,6 +22,6 @@ chomp $code;
 
 my $tracer = new VectorTracer::Perl(debug => 1);
 my $node = $tracer->parse($code);
-say $tracer->trace($node);
+say $tracer->trace($node, depth => 0);
 
 1;
