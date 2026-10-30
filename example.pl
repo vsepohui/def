@@ -3,7 +3,10 @@ say (123456+100);
 my $i = "Hello SCALAR " . "World";
 say $i;
 
-if (123) {
+$i .= " TEST!";
+say $i;
+
+if ($i) {
 	if (1) {
 		say 123;
 	};

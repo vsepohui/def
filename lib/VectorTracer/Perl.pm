@@ -185,6 +185,8 @@ sub _trace {
 					push @code, 'my_'.$_->{call_function}->[1];
 				} elsif ($f eq '.' ) {
 					push @code, 'Scalar_concat(Scalar('. $self->_trace($_->{call_function}->[1]) . '), Scalar('. $self->_trace($_->{call_function}->[2]). '))';
+				} elsif ($f eq '.=' ) {
+					push @code, 'my_'.$_->{call_function}->[1] . ' = Scalar_concat('. 'my_'.$_->{call_function}->[1]. ', Scalar('. $self->_trace($_->{call_function}->[2]). '));';
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -306,8 +308,14 @@ sub parse {
 			my ($digit) = $s =~ /^\(?(\d+)\)?$/;
 			if (defined $digit) {
 				return $digit;
-			} elsif ($s =~ /^\"([^\"]+)\"$/ ) {
+			} elsif ($s =~ /^"([^"]*)"$/ ) {
 				return qq["$1"];
+			} elsif ($s =~ /^'([^\']*)'$/ ) {
+				return qq["$1"];				
+			} elsif ($s =~ /^\$(\S+)\s*\.\=\s*(.+)$/) {
+				push @$node, {
+					call_function => ['.=' => $1, $self->parse($2)],
+				};
 			} elsif ($s =~ /^(.+)\s*\+\s*(.+)/) {
 				push @$node, {
 					call_function => ['+' => $self->parse($1), $self->parse($2)],
@@ -329,7 +337,7 @@ sub parse {
 					
 					call_function => ['/' => $self->parse($1), $self->parse($2)],
 				};
-			} elsif ($s =~ /^\$(\S+)/) {
+			} elsif ($s =~ /^\$(\S+)$/) {
 				push @$node, {
 					call_function => ['scalar_set' => $1],
 				};
