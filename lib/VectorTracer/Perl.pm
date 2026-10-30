@@ -48,6 +48,8 @@ using namespace std;
 class Scalar {
 	bool is_undef = true;
 	std::string string;
+	
+	public:
 	Scalar () {
 		;
 	}
@@ -72,6 +74,12 @@ class Scalar {
 	}
 	
 	
+	operator const char* () {
+		return this->string.c_str();
+	}
+	
+	
+		
 	operator int () {
 		return stoi(this->string);
 	}
@@ -95,6 +103,11 @@ class Scalar {
 	}
 	
 };
+
+std::ostream& operator << (std::ostream &os, Scalar &s)
+{
+    return os << (std::string) s;
+}
 
 int main () {
 	$code
@@ -155,6 +168,10 @@ sub _trace {
 					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
 				} elsif ($f eq '/') {
 					push @code, $self->_trace($_->{call_function}->[1]). '-'. $self->_trace($_->{call_function}->[2])."";
+				} elsif ($f eq 'scalar_init') {
+					push @code, "Scalar my_". $_->{call_function}->[1]. ' = '. $self->_trace($_->{call_function}->[2]).';';
+				} elsif ($f eq 'scalar_set') {
+					push @code, 'my_'.$_->{call_function}->[1];
 				} else {
 					die "Unsupported func: " . Dumper $f;
 				}
@@ -252,6 +269,10 @@ sub parse {
 				push @$node, {
 					call_function => ['while' => $self->parse($case), $self->parse($code)],
 				};
+			} elsif ($s =~ /^my \$([\S+])\s*\=\s*(.*)$/) {
+				push @$node, {
+						call_function => ['scalar_init' => $1, $self->parse($2)],
+				};				
 			} elsif ($s =~ /^$function\s*\((.*)\)$/) {
 				push @$node, {
 						call_function => [$function => $self->parse($1)],
@@ -290,6 +311,10 @@ sub parse {
 				push @$node, {
 					
 					call_function => ['/' => $self->parse($1), $self->parse($2)],
+				};
+			} elsif ($s =~ /^\$(\S+)/) {
+				push @$node, {
+					call_function => ['scalar_set' => $1],
 				};
 			} else {
 				die "Wrong syntax: $s";
